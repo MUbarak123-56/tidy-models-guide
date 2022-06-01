@@ -1,0 +1,108 @@
+---
+title: "R Modeling Fundamentals"
+author: "Mubarak Ganiyu"
+date: "6/1/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Package Installation
+
+```{r}
+library(tidymodels)
+library(tidyverse)
+```
+
+### An Example
+
+```{r}
+data(crickets, package = "modeldata")
+names(crickets)
+
+ggplot(crickets, 
+       aes(x = temp, y = rate, color = species, pch = species, lty = species)) +
+  geom_point(size = 2) +
+  geom_smooth(method = lm, se = FALSE, alpha = 0.5) +
+  scale_color_brewer(palette = "Paired") +
+  labs(x = "Temperature (C)", y = "Chirp Rate (per minute)")
+  
+```
+### Modeling Test
+
+```{r}
+interaction_fit <- lm(rate ~ (temp + species)^2, data = crickets)
+interaction_fit
+```
+
+```{r}
+par(mfrow=c(1,2))
+plot(interaction_fit, which = 1)
+plot(interaction_fit, which = 2)
+```
+### Comparison of two models to test for importance of interaction
+
+```{r}
+# Fit a reduced model:
+main_effect_fit <-  lm(rate ~ temp + species, data = crickets)
+
+# Compare the two:
+anova(main_effect_fit, interaction_fit)
+```
+```{r}
+summary(main_effect_fit)
+```
+### Making predictions
+
+```{r}
+new_values <- data.frame(species = "O. exclamationis", temp = 15:20)
+predict(main_effect_fit, new_values)
+```
+
+### Using na.fail or na.omit
+
+```{r}
+# Add a missing value to the prediction set
+new_values$temp[1] <- NA
+
+# The predict method for `lm` defaults to `na.pass`:
+predict(main_effect_fit, new_values)
+
+# Alternatively
+#predict(main_effect_fit, new_values, na.action = na.fail)
+
+predict(main_effect_fit, new_values, na.action = na.omit)
+```
+
+### Combining R Models and The Tidyverse
+
+```{r}
+split_by_species <-
+  crickets %>%
+  group_nest(species)
+split_by_species
+```
+
+```{r}
+model_by_species <-
+  split_by_species %>%
+  mutate(model = map(data, ~ lm(rate ~ temp, data = .x)))
+model_by_species
+```
+```{r}
+model_by_species %>%
+  mutate(coef = map(model, tidy)) %>%
+  select(species, coef) %>%
+  unnest(cols = c(coef))
+```
+```{r}
+library(conflicted)
+conflict_prefer("filter", winner = "dplyr")
+```
+
+```{r}
+tidymodels_prefer(quiet = FALSE)
+```
+
