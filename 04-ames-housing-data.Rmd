@@ -1,0 +1,50 @@
+---
+title: "Ames Housing Dataset"
+author: "Mubarak Ganiyu"
+date: "6/2/2022"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Package Installation
+
+```{r}
+library(tidymodels)
+library(tidyverse)
+tidymodels_prefer()
+```
+
+### Loading the data
+
+```{r}
+library(modeldata)
+data(ames)
+
+# or in one line
+data(ames, package = "modeldata")
+
+dim(ames)
+```
+### Exploring feature homes in Ames
+
+```{r}
+ggplot(ames, aes(x = Sale_Price)) +
+  geom_histogram(bins = 50, col = "white")
+```
+
+
+### Log transformation of housing variables
+
+```{r}
+ggplot(ames, aes(x = Sale_Price)) +
+  geom_histogram(bins = 50, col= "white") +
+  scale_x_log10()
+```
+
+```{r}
+ames <- ames %>% mutate(Sale_Price = log10(Sale_Price))
+```
+

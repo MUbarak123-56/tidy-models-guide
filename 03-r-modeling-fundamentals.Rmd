@@ -2,7 +2,7 @@
 title: "R Modeling Fundamentals"
 author: "Mubarak Ganiyu"
 date: "6/1/2022"
-output: pdf_document
+output: github_document
 ---
 
 ```{r setup, include=FALSE}
