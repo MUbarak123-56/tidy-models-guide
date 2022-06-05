@@ -1,0 +1,52 @@
+---
+title: "Spending our Data"
+author: "Mubarak Ganiyu"
+date: '2022-06-04'
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Package Installation
+
+```{r}
+library(tidymodels)
+library(tidyverse)
+tidymodels_prefer()
+```
+
+### Initial splitting
+
+```{r}
+library(modeldata)
+data(ames)
+
+# or in one line
+data(ames, package = "modeldata")
+# Set the random number stream using `set.seed()` so that the results can be
+# reproduced later.
+set.seed(501)
+
+# Save the split information for an 80/20 split of the data
+ames_split <- initial_split(ames, prop = 0.80)
+ames_split
+```
+
+```{r}
+ames_train <- training(ames_split)
+ames_test <- testing(ames_split)
+
+dim(ames_train)
+```
+
+```{r}
+set.seed(502)
+ames_split <- initial_split(ames, prop = 0.80, strata = Sale_Price)
+ames_train <- training(ames_split)
+ames_test <- testing(ames_split)
+
+dim(ames_test)
+```
+
