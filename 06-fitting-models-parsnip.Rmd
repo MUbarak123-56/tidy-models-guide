@@ -1,0 +1,146 @@
+---
+title: "Fitting models with parsnip"
+author: "Mubarak Ganiyu"
+date: '2022-06-06'
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Package Installation
+
+```{r}
+library(tidymodels)
+library(tidyverse)
+tidymodels_prefer()
+```
+
+
+```{r}
+library(modeldata)
+data(ames)
+
+# or in one line
+data(ames, package = "modeldata")
+# Set the random number stream using `set.seed()` so that the results can be
+# reproduced later.
+set.seed(501)
+
+# Save the split information for an 80/20 split of the data
+ames_split <- initial_split(ames, prop = 0.80)
+ames_train <- training(ames_split)
+ames_test <- testing(ames_split)
+```
+
+
+### Observing different modeling syntaxes
+
+```{r}
+linear_reg() %>% set_engine("lm")
+
+linear_reg() %>% set_engine("glmnet")
+
+linear_reg() %>% set_engine("stan")
+```
+
+With translate()
+
+```{r}
+linear_reg() %>% set_engine("lm") %>% translate()
+
+linear_reg(penalty = 1) %>% set_engine("glmnet") %>% translate()
+
+linear_reg() %>% set_engine("stan") %>% translate()
+```
+
+```{r}
+lm_model <- 
+  linear_reg() %>% 
+  set_engine("lm")
+
+lm_form_fit <- lm_model %>% 
+  fit(Sale_Price ~ Longitude + Latitude, data = ames_train)
+
+lm_xy_fit <- lm_model %>% 
+  fit_xy(
+    x = ames_train %>% select(Longitude, Latitude),
+    y = ames_train %>% pull(Sale_Price)
+  )
+
+lm_form_fit
+lm_xy_fit
+```
+
+### Random forest Test
+
+```{r}
+rand_forest(trees = 1000, min_n = 5) %>%
+  set_engine("ranger") %>%
+  set_mode("regression") %>%
+  translate()
+```
+```{r}
+rand_forest(trees = 1000, min_n = 5) %>%
+  set_engine("ranger", verbose = TRUE) %>%
+  set_mode("regression")
+```
+### Use the model's result
+
+```{r}
+lm_form_fit %>% extract_fit_engine()
+```
+
+```{r}
+lm_form_fit %>% extract_fit_engine() %>% vcov()
+```
+```{r}
+model_res <-
+  lm_form_fit %>%
+  extract_fit_engine() %>%
+  summary()
+
+# The model coefficient table is accessible via the `coef` method.
+param_est <- coef(model_res)
+class(param_est)
+
+param_est
+```
+#### Tabulating model results
+
+```{r}
+tidy(lm_form_fit)
+```
+
+### Predictions 
+
+```{r}
+ames_test_small <- ames_test %>% slice(1:5)
+predict(lm_form_fit, new_data = ames_test_small)
+```
+
+```{r}
+ames_test_small %>% 
+  select(Sale_Price) %>% 
+  bind_cols(predict(lm_form_fit, ames_test_small)) %>% 
+  bind_cols(predict(lm_form_fit, ames_test_small, type = "pred_int"))
+```
+
+#### A complete test-run for modeling
+
+```{r}
+tree_model <-
+  decision_tree(min_n = 2) %>%
+  set_engine("rpart") %>%
+  set_mode("regression")
+
+tree_fit <-
+  tree_model %>%
+  fit(Sale_Price ~ Longitude + Latitude, data = ames_train)
+
+ames_test_small %>%
+  select(Sale_Price) %>%
+  bind_cols(predict(tree_fit, ames_test_small))
+```
+
