@@ -1,0 +1,145 @@
+---
+title: "A Model Workflow"
+author: "Mubarak Ganiyu"
+date: '2022-06-07'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Package Installation
+
+```{r}
+library(tidymodels)
+tidymodels_prefer()
+data(ames)
+ames <- mutate(ames, Sale_Price = log10(Sale_Price))
+
+set.seed(123)
+ames_split <- initial_split(ames, prop = 0.80, strata = Sale_Price)
+ames_train <- training(ames_split)
+ames_test  <-  testing(ames_split)
+
+lm_model <- linear_reg() %>% set_engine("lm")
+```
+
+### Workflow basics
+
+```{r}
+lm_wflow <-
+  workflow() %>% 
+  add_model(lm_model)
+lm_wflow
+```
+
+```{r}
+lm_wflow <-
+  lm_wflow %>% 
+  add_formula(Sale_Price ~ Longitude + Latitude)
+
+lm_wflow
+```
+
+```{r}
+lm_fit <- fit(lm_wflow, ames_train)
+lm_fit
+```
+
+```{r}
+predict(lm_fit, ames_test %>%  slice(1:3))
+```
+
+**Updating formula**
+
+```{r}
+lm_fit %>% update_formula(Sale_Price ~ Longitude)
+```
+
+**Adding raw variables**
+
+```{r}
+lm_wflow <- 
+  lm_wflow %>% 
+  remove_formula() %>% 
+  add_variables(outcome = Sale_Price, predictors = c("Latitude","Longitude"))
+lm_wflow
+```
+```{r}
+lm_wflow <- 
+  lm_wflow %>% 
+  remove_formula() %>% 
+  add_variables(outcome = Sale_Price, predictors = c(ends_with("tude")))
+lm_wflow
+```
+
+### Special formulas and in-line functions
+
+```{r}
+library(multilevelmod)
+multilevel_spec <- linear_reg() %>% set_engine("lmer")
+
+multilevel_workflow <- 
+  workflow() %>% 
+  add_variables(outcome = Survived, predictors = c(Sex, Age, Parch)) %>% 
+  add_model(multilevel_spec, formula = Survived ~ Sex + (Age | Parch))
+
+library(titanic)
+multilevel_fit <- fit(multilevel_workflow, data = titanic_train)
+multilevel_fit
+```
+### Creating Multiple Workflows at once
+
+```{r}
+location <- list(
+  longitude = Sale_Price ~ Longitude,
+  latitude = Sale_Price ~ Latitude,
+  coords = Sale_Price ~ Longitude + Latitude,
+  neighborhood = Sale_Price ~ Neighborhood
+)
+```
+
+
+```{r}
+library(workflowsets)
+location_models <- workflow_set(preproc = location, models = list(lm = lm_model))
+location_models
+```
+
+```{r}
+location_models$info[[1]]
+```
+
+```{r}
+extract_workflow(location_models, id = "coords_lm")
+```
+
+```{r}
+location_models <-
+   location_models %>%
+   mutate(fit = map(info, ~ fit(.x$workflow[[1]], ames_train)))
+location_models
+location_models$fit[[1]]
+```
+
+### Evaluating the Test Set
+
+```{r}
+final_lm_res <- last_fit(lm_wflow, ames_split)
+final_lm_res
+```
+
+```{r}
+fitted_lm_wflow <- extract_workflow(final_lm_res)
+```
+
+
+```{r}
+collect_metrics(final_lm_res)
+collect_predictions(final_lm_res) %>% slice(1:5)
+```
+```{r}
+
+```
+
