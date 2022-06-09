@@ -1,0 +1,184 @@
+---
+title: "Judging Model Effectiveness"
+author: "Mubarak Ganiyu"
+date: '2022-06-09'
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Package Installation
+
+```{r}
+library(tidymodels)
+data(ames)
+ames <- mutate(ames, Sale_Price = log10(Sale_Price))
+
+set.seed(123)
+ames_split <- initial_split(ames, prop = 0.80, strata = Sale_Price)
+ames_train <- training(ames_split)
+ames_test  <-  testing(ames_split)
+
+ames_rec <-
+  recipe(Sale_Price ~ Neighborhood + Gr_Liv_Area + Year_Built + Bldg_Type +
+           Latitude + Longitude, data = ames_train) %>%
+  step_log(Gr_Liv_Area, base = 10) %>%
+  step_other(Neighborhood, threshold = 0.01) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_interact( ~ Gr_Liv_Area:starts_with("Bldg_Type_") ) %>%
+  step_ns(Latitude, Longitude, deg_free = 20)
+
+lm_model <- linear_reg() %>% set_engine("lm")
+
+lm_wflow <-
+  workflow() %>%
+  add_model(lm_model) %>%
+  add_recipe(ames_rec)
+
+lm_fit <- fit(lm_wflow, ames_train)
+```
+
+#### Regression Metrics
+
+```{r}
+ames_test_res <- predict(lm_fit, new_data = ames_test %>% select(-Sale_Price))
+ames_test_res
+```
+```{r}
+ames_test_res <- bind_cols(ames_test_res, ames_test %>% select(Sale_Price))
+ames_test_res
+```
+
+```{r}
+ggplot(ames_test_res, aes(x = Sale_Price, y = .pred)) +
+  # Create a diagonal line:
+  geom_abline(lty = 2) +
+  geom_point(alpha = 0.5) +
+  labs(y = "Predicted Sale Price (log10)", x = "Sale Price (log10)") +
+  # Scale and size the x- and y-axis uniformly:
+  coord_obs_pred()
+```
+
+```{r}
+rmse(ames_test_res, truth = Sale_Price, estimate = .pred)
+```
+
+For computing numerous metrics at once, we use metric set
+
+```{r}
+ames_metrics <- metric_set(rmse, rsq, mae)
+ames_metrics(ames_test_res, truth = Sale_Price, estimate = .pred)
+```
+
+#### Binary Classification Metrics
+
+```{r}
+data(two_class_example)
+tibble(two_class_example)
+```
+```{r}
+conf_mat(two_class_example, truth = truth, estimate = predicted)
+
+accuracy(two_class_example, truth, predicted)
+
+# Matthews correlation coefficient:
+mcc(two_class_example, truth, predicted)
+
+# F1 metric:
+f_meas(two_class_example, truth, predicted)
+
+# Combining these three classification metrics together
+classification_metrics <- metric_set(accuracy, mcc, f_meas)
+classification_metrics(two_class_example, truth = truth, estimate = predicted)
+```
+```{r}
+f_meas(two_class_example, truth, predicted, event_level = "second")
+```
+
+```{r}
+two_class_curve <- roc_curve(two_class_example, truth, Class1)
+two_class_curve
+```
+
+```{r}
+roc_auc(two_class_example, truth, Class1)
+```
+
+```{r}
+autoplot(two_class_curve)
+```
+
+
+#### Multi-Class Classification Metrics
+
+```{r}
+data(hpc_cv)
+tibble(hpc_cv)
+```
+```{r}
+accuracy(hpc_cv, obs, pred)
+mcc(hpc_cv, obs, pred)
+```
+
+```{r}
+class_totals <-
+  count(hpc_cv, obs, name = "totals") %>%
+  mutate(class_wts = totals / sum(totals))
+class_totals
+```
+
+```{r}
+cell_counts <-
+  hpc_cv %>%
+  group_by(obs, pred) %>%
+  count() %>%
+  ungroup()
+
+# Compute the four sensitivities using 1-vs-all
+one_versus_all <-
+  cell_counts %>%
+  filter(obs == pred) %>%
+  full_join(class_totals, by = "obs") %>%
+  mutate(sens = n / totals)
+
+one_versus_all
+```
+
+```{r}
+# Three different estimates:
+one_versus_all %>%
+  summarize(
+    macro = mean(sens),
+    macro_wts = weighted.mean(sens, class_wts),
+    micro = sum(n) / sum(totals)
+  )
+```
+
+```{r}
+sensitivity(hpc_cv, obs, pred, estimator = "macro")
+sensitivity(hpc_cv, obs, pred, estimator = "macro_weighted")
+sensitivity(hpc_cv, obs, pred, estimator = "micro")
+```
+
+```{r}
+roc_auc(hpc_cv, obs, VF, F, M, L)
+
+roc_auc(hpc_cv, obs, VF, F, M, L, estimator = "macro_weighted")
+```
+
+```{r}
+hpc_cv %>%
+  group_by(Resample) %>%
+  accuracy(obs, pred)
+```
+
+```{r}
+# Four 1-vs-all ROC curves for each fold
+hpc_cv %>%
+  group_by(Resample) %>%
+  roc_curve(obs, VF, F, M, L) %>%
+  autoplot()
+```
+
