@@ -257,7 +257,14 @@ get_model(lm_fit)
 ```{r}
 ctrl <- control_resamples(extract = get_model)
 
-#lm_res <- lm_wflow %>%  fit_resamples(resamples = ames_folds, control = ctrl)
+unregister_dopar <- function() {
+  env <- foreach:::.foreachGlobals
+  rm(list=ls(name=env), pos=env)
+}
+
+unregister_dopar()
+lm_res <- lm_wflow %>%  fit_resamples(resamples = ames_folds, control = ctrl)
+lm_res
 #lm_res
 ```
 
