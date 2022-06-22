@@ -201,11 +201,14 @@ full_results_time <-
    )
 ```
 ```{r}
-grid_results
+grid_results 
 ```
 
 
 ```{r}
+grid_results <- grid_results %>%
+   filter(wflow_id != "KNN") %>% 
+   filter(wflow_id != "full_quad_KNN")
 grid_results %>%
    rank_results() %>%
    filter(.metric == "rmse") %>%
@@ -242,18 +245,29 @@ race_ctrl <-
       save_workflow = TRUE
    )
 
-race_results <-
-   all_workflows %>%
-   workflow_map(
-      "tune_race_anova",
-      seed = 1503,
-      resamples = concrete_folds,
-      grid = 25,
-      control = race_ctrl
+# race_results <-
+#    all_workflows %>%
+#    workflow_map(
+#       "tune_race_anova",
+#       seed = 1503,
+#       resamples = concrete_folds,
+#       grid = 10,
+#       control = race_ctrl
+#    )
+
+full_results_time <-
+   system.time(
+      race_results <-
+         all_workflows %>%
+         workflow_map(seed = 1503, resamples = concrete_folds, grid = 10,
+                      control = grid_ctrl, verbose = TRUE)
    )
 ```
 
 ```{r}
+race_results <- race_results %>%
+   filter(wflow_id != "KNN") %>% 
+   filter(wflow_id != "full_quad_KNN")
 race_results
 ```
 
@@ -299,19 +313,19 @@ matched_results %>%
 ```{r}
 best_results <-
    race_results %>%
-   extract_workflow_set_result("boosting") %>%
+   extract_workflow_set_result("Cubist") %>%
    select_best(metric = "rmse")
 best_results
 
-boosting_test_results <-
+cubist_test_results <-
    race_results %>%
-   extract_workflow("boosting") %>%
+   extract_workflow("Cubist") %>%
    finalize_workflow(best_results) %>%
    last_fit(split = concrete_split)
 ```
 
 ```{r}
-collect_metrics(boosting_test_results)
+collect_metrics(cubist_test_results)
 ```
 
 ```{r}
