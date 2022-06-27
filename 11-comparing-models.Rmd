@@ -91,6 +91,7 @@ preproc <-
 lm_models <- workflow_set(preproc, list(lm = lm_model), cross = FALSE)
 lm_models
 ```
+
 ```{r}
 lm_models <-
   lm_models %>%
@@ -139,6 +140,7 @@ rsq_wider <-
 
 corrr::correlate(rsq_wider %>% select(-id), quiet = TRUE)
 ```
+
 ```{r}
 rsq_indiv_estimates %>%
   mutate(wflow_id = reorder(wflow_id, .estimate)) %>%
